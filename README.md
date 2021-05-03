@@ -3,15 +3,21 @@
 ## Description
 This program measures height and width of multiple pins (black pin on white background) using OpenCV. The program also calulates slope of the base and measures height of the pin from this base. Base must be on the bottom of the image.
 
+## Assumptions
+- image has 2 colors to make edge detection easy,
+- base from whitch pins are measured in on the bottom,
+- pins go from down upwards,
+- pins are possible to be segmented by lines perpendicular to the base.
+
 ## Done
 - detect edges of the image
 - detect if base is not parallel to the x axis and rotate picture so it is parallel,
-- create height map (easy to calculate max height, but we want tu detect if there are more than 1 pin to measure
+- create height map (now it is easy to calculate max height, but we want tu detect if there are more than 1 pin to measure).
 
-## ToDo
-- detect if there is more than 1 object to measure and make segmentation (derivative based method that uses height map?),
-- make measures of the height (height map done - easy to measure max height, harder to detect multiple objects to measure),
-- make measures of the width (using line iterator),
+## To do
+- detect if there is more than 1 pin to measure and make segmentation (derivative based method that uses height map?),
+- make measures of the height of each pin (height map done - easy to measure max height, harder to detect multiple objects to measure),
+- make measures of the width of each pin (using line iterator).
 
 ## Requirements
 - OpenCV 3.x or 4.x
