@@ -4,7 +4,7 @@ int main(int argc, char** argv)
 {
     // Declare the output variables
     Mat dst, cdst, cdstP;
-    const char* default_file = "test001.png";
+    const char* default_file = "../screens/test001.png";
     const char* filename = argc >=2 ? argv[1] : default_file;
 
     printf("Using OpenCV, version %i.%i.%i \n", CV_MAJOR_VERSION, CV_MINOR_VERSION, CV_SUBMINOR_VERSION);
@@ -31,12 +31,14 @@ int main(int argc, char** argv)
     cdstP = cdst.clone();
 
     // find a base line to with measures are done 
+	Point A, B;
     Point2f triangle_src[3];
     double found_line_len;
 
-    findLine(dst, triangle_src, found_line_len);
+    findBaseLine(dst, A, B);
+	findTriangle(dst, A, B, triangle_src, found_line_len);
 
-    printf("\nFitLine coordinates: (%f, %f), (%f, %f), line length = %f", triangle_src[0].x, triangle_src[0].y, triangle_src[1].x, triangle_src[1].y, found_line_len);
+    printf("\nFitLine coordinates: (%f, %f), (%f, %f), line length = %f\n\n", triangle_src[0].x, triangle_src[0].y, triangle_src[1].x, triangle_src[1].y, found_line_len);
 
     //for warpAffine - we need to rotate the whole pic to eliminate baseline slope
     Point2f triangle_target[3];
@@ -55,7 +57,11 @@ int main(int argc, char** argv)
     line(cdstP, triangle_src[0], triangle_src[1], Scalar(0,255,255), 1, LINE_AA);
 
     vector<Point> localMax;
-    findHighestWhitePixel(edges, localMax);
+    findHighestWhitePixel(warp_src, localMax);
+
+    printf("Results - local maximum points:\n");
+    print(localMax);
+    printf("\n\n");
 
     // Show results
     imshow("Source", src);

@@ -3,16 +3,24 @@
 void help()
 {
     printf("\n"
-            "This program demonstrated a simple method of connected components clean up of background subtraction\n"
-            "When the program starts, it begins learning the background.\n"
-            "You can toggle background learning on and off by hitting the space bar.\n"
+            "This program calculates width and height of the pins.\n"
+            "Pins must be placed on a base (straight horizontal line), and must be directed upwards.\n"
+			"You can obtain the best effects if the picture has only 2 colors\n"
+			"(if not, then use image preprocessing, like threshold, erode/dilate etc.).\n\n"
             "Call\n"
-            "./segment_objects [video file, else it reads camera 0]\n\n");
+            "./measure_object [optional path for picture]\n\n");
 }
 
-// Function to return the minimum distance 
-// between a line segment AB and a point E 
-// https://www.geeksforgeeks.org/minimum-distance-from-a-point-to-the-line-segment-using-vectors/
+/**
+ * Function to return the minimum distance 
+ * between a line |AB| and a point E.
+ * https://www.geeksforgeeks.org/minimum-distance-from-a-point-to-the-line-segment-using-vectors/
+ *
+ * @param A (In) first point (x, y) of the |AB| line.
+ * @param B (In) second point (x, y) of the |AB| line.
+ * @param E (In) point (x, y), from which distance to |AB| is measured.
+ * @return distance from E to |AB| in pixels stored as double.
+ */
 double minDistance(Point A, Point B, Point E) 
 { 
   
@@ -32,25 +40,19 @@ double minDistance(Point A, Point B, Point E)
     AB_BE = (AB.x * BE.x + AB.y * BE.y); 
     AB_AE = (AB.x * AE.x + AB.y * AE.y); 
   
-    // Minimum distance from 
-    // point E to the line segment 
-    double AB_to_E_min_length = 0; 
-  
     // Case 1 
     if (AB_BE > 0) { 
         // Finding the magnitude 
         double y = E.y - B.y; 
         double x = E.x - B.x; 
-        AB_to_E_min_length = sqrt(x * x + y * y); 
-        return AB_to_E_min_length; 
+        return sqrt(x * x + y * y); 
     } 
   
     // Case 2 
     if (AB_AE < 0) { 
         double y = E.y - A.y; 
         double x = E.x - A.x; 
-        AB_to_E_min_length = sqrt(x * x + y * y); 
-        return AB_to_E_min_length; 
+        return sqrt(x * x + y * y); 
     } 
   
     // Case 3 
@@ -60,11 +62,11 @@ double minDistance(Point A, Point B, Point E)
     double x2 = AE.x; 
     double y2 = AE.y; 
     double mod = sqrt(x1 * x1 + y1 * y1); 
-    AB_to_E_min_length = abs(x1 * y2 - y1 * x2) / mod; 
-    return AB_to_E_min_length; 
+    return abs(x1 * y2 - y1 * x2) / mod; 
     
 } 
 
+// in progress
 vector<int> findHighestWhitePixel(Mat img, vector<Point>& localMax) 
 {
     localMax.clear();
@@ -80,8 +82,9 @@ vector<int> findHighestWhitePixel(Mat img, vector<Point>& localMax)
                     vector<int>::iterator val_before = max_element(highestValVec.begin() + j-step, highestValVec.begin() + j-(int)(step/2));
                     vector<int>::iterator val_after = max_element(highestValVec.begin() + j+(int)(step/2), highestValVec.begin() + j+step);
                     // printf("Value at %i column: %i\n", j, *val);
-                    if ((*val == highestValVec[j] && *val_before < highestValVec[j]) &&
-                    (*val == highestValVec[j] && *val_after < highestValVec[j])) {
+                    if (*val == highestValVec[j] && *val_before < highestValVec[j] &&
+                    *val_after < highestValVec[j] && *val == highestValVec[j] && 
+                    highestValVec[j] > highestValVec[j-1]) {
                         localMax.push_back(Point2i(j, highestValVec[j]));
                         //printf("Local Maximum at (%i, %i)\n", j, highestValVec[j]);
                     }
@@ -95,12 +98,25 @@ vector<int> findHighestWhitePixel(Mat img, vector<Point>& localMax)
     return highestValVec;
 }
 
-double lineLength(Point p1, Point p2) 
+/**
+ * Returns a length of the |AB| line.
+ *
+ * @param A (In) first point (x, y) of the |AB| line.
+ * @param B (In) second point (x, y) of the |AB| line.
+ * @return length of the |AB| line defined as double.
+ */
+double lineLength(Point A, Point B) 
 {
-    return sqrt( pow(p2.x - p1.x, 2) + pow(p2.y - p1.y, 2) );
+    return sqrt( pow(B.x - A.x, 2) + pow(B.y - A.y, 2) );
 }
 
-// creates a map of pixels with max height only, measured from down to up
+/**
+ * Creates a map of pixels with max height only, measured from down to up.
+ *
+ * @param src (In) source image
+ * @param vector_of_heights (InOut) returned vector of max heights in each column of the src image
+ * @return image on black background with white pixels in positions pointed by vector_of_heights
+ */
 Mat createMapOfMaxHeights(Mat src, vector<int>& vector_of_heights)
 {
     cv::threshold(src, src, 120, 255, THRESH_BINARY);
@@ -123,16 +139,16 @@ Mat createMapOfMaxHeights(Mat src, vector<int>& vector_of_heights)
 }
 
 /**
- * Find the most suitable line using HoughLinesP.
+ * Find the most suitable base line using HoughLinesP.
  *
  * Returns a triangle with found line as a base.
  *
- * @param src (In) image after edge detection (e.g. Canny or laplacian)
- * @param triangle (InOut) points of perpendicular triangle with found line as a base and height of src.rows()
- * @param line_len (InOut) length of the found line
+ * @param src (In) image after edge detection (e.g. Canny or laplacian).
+ * @param A (InOut) first point (x, y) of the |AB| line.
+ * @param B (InOut) second point (x, y) of the |AB| line.
  * @param max_a (In) max slope for line searching from function y=ax+b. Default is +/-1. Used to ignore other lines
  */
-void findLine(Mat src, Point2f (&triangle)[3], double& line_len, double max_a)
+void findBaseLine(Mat src, Point& A, Point& B, double max_a)
 {
     vector<Vec4i> lines_houghP; // will hold the results of the detection
     vector<Vec4i> lines_houghP_chosen;
@@ -170,7 +186,7 @@ void findLine(Mat src, Point2f (&triangle)[3], double& line_len, double max_a)
         }
     }
 
-    //LS method for find a line
+    // LS method for find a line
     Vec4f ls_line;
     vector<Point2i> ls_points;
     for( size_t i = 0; i < lines_houghP_chosen.size(); i++ )
@@ -188,30 +204,44 @@ void findLine(Mat src, Point2f (&triangle)[3], double& line_len, double max_a)
     float x0 = ls_line[2];
     float y0 = ls_line[3];
 
-    // finding start and end point of line fount by least squares
-    int x_begin = 0;
-    int x_end   = src.size().width - 1;
-    int y_begin = int((-x0 * vy / vx) + y0);
-    int y_end   = int(((src.size().width - x0) * vy / vx) + y0);
+    // finding start and end point of line found by least squares, return values
+    A.x = 0;
+	A.y = int((-x0 * vy / vx) + y0);
+    B.x = src.size().width - 1;
+    B.y = int(((src.size().width - x0) * vy / vx) + y0);
+}
 
-    // finding a and b -> y = ax+b, and finding a line perpendicular to it
-    float a_ls  = float(y_end - y_begin) / float(src.size().width - 1);
+/**
+ * Find the rectangular triangle ABC with |AB| as base and |BC| as perpendicular line.
+ *
+ * Length of the |BC| line is equal to the height of the src image.
+ *
+ * @param src (In) source image
+ * @param A (In) first point (x, y) of the |AB| line.
+ * @param B (In) second point (x, y) of the |AB| line.
+ * @param triangle (InOut) array that stores points A, B and C (in this order).
+ * @param line_len (InOut) length of the |AB| line.
+ */
+void findTriangle(Mat src, Point A, Point B, Point2f (&triangle)[3], double& line_len) {
+
+	// finding a and b -> y = ax+b, and finding a line perpendicular to it
+    float a_ls  = float(B.y - A.y) / float(src.size().width - 1);
     float a_ls_perp = -1 / a_ls;                        //perpendicular line
-    float b_ls  = y_begin;
-    float b_ls_perp = (a_ls - a_ls_perp)*x_end + b_ls;  //perpendicular line
+    float b_ls  = A.y;
+    float b_ls_perp = (a_ls - a_ls_perp)*B.x + b_ls;  //perpendicular line
 
     // third point to affine, to make a triangle
     // we need to rotate the img in the way that slope is eliminated
-    float theta_ls = atan((y_end - y_begin) / x_end);
+    float theta_ls = atan((B.y - A.y) / B.x);
     float offset_perp = -src.rows/cos(theta_ls);
     float x_perp = (b_ls_perp - (b_ls + offset_perp)) / (a_ls - a_ls_perp);
     float y_perp = a_ls_perp * x_perp + b_ls_perp;
 
     //return values
-    triangle[0]  = Point(x_begin, y_begin);
-    triangle[1]  = Point(x_end, y_end);
+    triangle[0]  = A;
+    triangle[1]  = B;
     triangle[2]  = Point(x_perp, y_perp);
-    line_len = lineLength(Point(triangle[0].x, triangle[0].y), Point(triangle[1].x, triangle[1].y));
+    line_len = lineLength(A, B);
 }
 
 

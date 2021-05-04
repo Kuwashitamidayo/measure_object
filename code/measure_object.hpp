@@ -17,6 +17,7 @@ double minDistance(Point A, Point B, Point E);
 vector<int> findHighestWhitePixel(Mat img, vector<Point>& localMax);
 double lineLength(Point p1, Point p2);
 Mat createMapOfMaxHeights(Mat src, vector<int>& vector_of_heights);
-void findLine(Mat src, Point2f (&triangle)[3], double& line_len, double max_a=1.0);
+void findBaseLine(Mat src, Point& A, Point& B, double max_a=1.0);
+void findTriangle(Mat src, Point A, Point B, Point2f (&triangle)[3], double& line_len);
 
 #endif

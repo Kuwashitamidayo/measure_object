@@ -4,7 +4,7 @@
 APP = measure_object
 MAIN = main
 CPPINCLUDE_DIRS =  -I. -I/usr/local/include/opencv
-CPPLIBS = -L/usr/local/lib/opencv -lopencv_core -lopencv_flann -lopencv_video
+CPPLIBS = -L/usr/local/lib/opencv -lopencv_core
 LIBS =
 
 CPP = g++
