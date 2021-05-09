@@ -47,6 +47,7 @@ int main(int argc, char** argv)
     triangle_target[2]  = Point(found_line_len, 0);
 
     Mat warp_mat = getAffineTransform(triangle_src, triangle_target);
+    Mat inv_warp_mat = getAffineTransform(triangle_target, triangle_src);
     Mat warp_src = Mat::zeros(src.rows, (int)found_line_len, src.type());
     warpAffine(edges, warp_src, warp_mat, warp_src.size());
 
@@ -56,19 +57,35 @@ int main(int argc, char** argv)
     line(res, triangle_src[0], triangle_src[1], Scalar(0,255,255), 1, LINE_AA);
     line(cdstP, triangle_src[0], triangle_src[1], Scalar(0,255,255), 1, LINE_AA);
 
-    vector<Point> localMax;
-    findHighestWhitePixel(warp_src, localMax);
+    vector<Point> local_max_rot, local_max;
 
-    printf("Results - local maximum points:\n");
-    print(localMax);
-    printf("\n\n");
+    local_max_rot = findHighestWhitePixels(edges.rows, vector_of_heights);
+    local_max = remapPointsToOriginalImage(local_max_rot, inv_warp_mat);
+
+    Mat edges_color;
+    cvtColor(warp_src, edges_color, COLOR_GRAY2BGR);
+    paintPoints(res, local_max, 5, cv::Scalar(0, 0, 255));
+    paintPoints(edges_color, local_max_rot, 5, cv::Scalar(0, 0, 255));
+    
+    // printf("All points:\n");
+    // printVector(vector_of_heights);
+    // printf("\n\n");
+
+    // printf("Results - local maximum points on src image:\n");
+    // print(local_max);
+    // printf("\n\n");
+
+    // printf("Results - local maximum points:\n");
+    // print(local_max_rot);
+    // printf("\n\n");
 
     // Show results
     imshow("Source", src);
-    imshow("Detected Line (yellow) - Probabilistic Line Transform", cdstP);
-    imshow("Edges", edges);
-    imshow("Rotated edges", warp_src);
-    imshow("Max heights map", measured_heights);
+    // imshow("Detected Line (yellow) - Probabilistic Line Transform", cdstP);
+    // imshow("Edges", edges);
+    imshow("Rotated edges with points", edges_color);
+    // imshow("Rotated edges", warp_src);
+    // imshow("Max heights map", measured_heights);
     imshow("Result", res);
     // Wait and Exit
     waitKey();

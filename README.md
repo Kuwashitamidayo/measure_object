@@ -12,15 +12,16 @@ This program measures height and width of multiple pins (black pin on white back
 ## Done
 - detect edges of the image
 - detect if base is not parallel to the x axis and rotate picture so it is parallel,
-- create height map (now it is easy to calculate max height, but we want tu detect if there are more than 1 pin to measure).
+- create height map (now it is easy to calculate max height, but we want tu detect if there are more than 1 pin to measure),
+- make measures of the height of each pin, store its height and paint a circle at the top of the pin.
 
 ## To do
-- detect if there is more than 1 pin to measure and make segmentation (derivative based method that uses height map?),
-- make measures of the height of each pin (height map done - easy to measure max height, harder to detect multiple objects to measure),
+- detect if there is more than 1 pin to measure width and make segmentation (to be checked on vector of heights),
 - make measures of the width of each pin (using line iterator).
 
 ## Requirements
 - OpenCV 3.x or 4.x
+- g++
 
 ## Screens
 <p align="center">

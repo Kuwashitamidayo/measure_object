@@ -66,38 +66,6 @@ double minDistance(Point A, Point B, Point E)
     
 } 
 
-// in progress
-vector<int> findHighestWhitePixel(Mat img, vector<Point>& localMax) 
-{
-    localMax.clear();
-    int step = 20;
-    vector<int> highestValVec(img.cols);
-    for(int j=0; j<img.cols; j++) {         // iterate from left to right
-        for(int i=0; i<img.rows; i++) {     // iterate from up to down
-            Point3i pixelVal = Point3i(img.at<cv::Vec3b>(i,j)[0], img.at<cv::Vec3b>(i,j)[1], img.at<cv::Vec3b>(i,j)[2]);
-            if (pixelVal == Point3i(255, 255, 255)) {
-                highestValVec[j] = i;
-                if (j >= step && j <= img.cols - step) {
-                    vector<int>::iterator val = max_element(highestValVec.begin() + j-step, highestValVec.begin() + j+step);
-                    vector<int>::iterator val_before = max_element(highestValVec.begin() + j-step, highestValVec.begin() + j-(int)(step/2));
-                    vector<int>::iterator val_after = max_element(highestValVec.begin() + j+(int)(step/2), highestValVec.begin() + j+step);
-                    // printf("Value at %i column: %i\n", j, *val);
-                    if (*val == highestValVec[j] && *val_before < highestValVec[j] &&
-                    *val_after < highestValVec[j] && *val == highestValVec[j] && 
-                    highestValVec[j] > highestValVec[j-1]) {
-                        localMax.push_back(Point2i(j, highestValVec[j]));
-                        //printf("Local Maximum at (%i, %i)\n", j, highestValVec[j]);
-                    }
-
-                }
-                break;
-            }
-        }
-    }
-    
-    return highestValVec;
-}
-
 /**
  * Returns a length of the |AB| line.
  *
@@ -108,34 +76,6 @@ vector<int> findHighestWhitePixel(Mat img, vector<Point>& localMax)
 double lineLength(Point A, Point B) 
 {
     return sqrt( pow(B.x - A.x, 2) + pow(B.y - A.y, 2) );
-}
-
-/**
- * Creates a map of pixels with max height only, measured from down to up.
- *
- * @param src (In) source image
- * @param vector_of_heights (InOut) returned vector of max heights in each column of the src image
- * @return image on black background with white pixels in positions pointed by vector_of_heights
- */
-Mat createMapOfMaxHeights(Mat src, vector<int>& vector_of_heights)
-{
-    cv::threshold(src, src, 120, 255, THRESH_BINARY);
-    // we assume that src is already grayscale
-    Mat dst = Mat::zeros(src.rows, src.cols, src.type());
-    int max_height;
-    for (int i=0; i < src.cols; i++) {
-        max_height = src.rows-1;
-        for (int j=0; j < src.rows; j++) {
-            if ((int)src.at<uchar>(j,i) > 250)
-            {
-                max_height = src.rows - j;
-                break;
-            }
-        }
-        dst.at<uchar>(max_height, i) = 255;
-        vector_of_heights.push_back(max_height);
-    }
-    return dst;
 }
 
 /**
@@ -244,4 +184,128 @@ void findTriangle(Mat src, Point A, Point B, Point2f (&triangle)[3], double& lin
     line_len = lineLength(A, B);
 }
 
+/**
+ * Creates a map of pixels with max height only, measured from down to up.
+ *
+ * @param src (In) source image
+ * @param vector_of_heights (InOut) returned vector of max heights in each column of the src image
+ * @return image on black background with white pixels in positions pointed by vector_of_heights
+ */
+Mat createMapOfMaxHeights(Mat src, vector<int>& vector_of_heights)
+{
+    cv::threshold(src, src, 120, 255, THRESH_BINARY);
+    // we assume that src is already grayscale
+    Mat dst = Mat::zeros(src.rows, src.cols, src.type());
+    int max_height;
+    for (int i=0; i < src.cols; i++) {
+        max_height = src.rows - 1;
+        for (int j=0; j < src.rows; j++) {
+            if ((int)src.at<uchar>(j,i) > 250)
+            {
+                max_height = j;
+                break;
+            }
+        }
+        dst.at<uchar>(max_height, i) = 255;
+        vector_of_heights.push_back(max_height);
+    }
+    return dst;
+}
+
+/**
+ * Finds local maximum points from selected vector. After finding it only values of 
+ * (min_val_height * max_height) or higher are selected.
+ * https://www.geeksforgeeks.org/minimum-distance-from-a-point-to-the-line-segment-using-vectors/
+ *
+ * @param vector_of_heights (In) vector of maximum heights in each row of img.
+ * @param min_val_height (In) percent value of max height (range: <0.0; 1.0>) above which local_max point is accepted
+ * @return local_max points that are higher than (min_val_height * max_height)
+ */
+vector<cv::Point> findHighestWhitePixels(int img_height, vector<int> vector_of_heights, float min_val_height) 
+{
+    enum {
+        Ascending,
+        Descending
+    } direction = Ascending;
+
+    vector<cv::Point> local_max, local_max_sorted;
+    int prev = img_height;
+    int actual = 0;
+    int max = 0;
+    int i = 0;
+
+    for(auto it = vector_of_heights.begin(); it != vector_of_heights.end(); ++it, i++) {
+        actual = *it;
+        if (actual > prev && (direction != Descending)) {
+            local_max.push_back(cv::Point(i, prev));
+            if (prev < max) max = prev;
+            direction = Descending;
+        } 
+        if (actual < prev) { direction = Ascending; }
+        prev = actual;
+    }
+    min_val_height = 1;
+    for(auto it = local_max.begin(); it != local_max.end(); ++it) {
+        if ((*it).y > min_val_height * max) {
+            local_max_sorted.push_back(*it);
+        }
+    }
+    
+    return local_max_sorted;
+}
+
+/**
+ * Remaps points from warped to original image, using rotation matrix.
+ *
+ * @param points (In) Points to be remapped.
+ * @param rotation_matrix (In) Rotation matrix used to remap points (2x2).
+ * @return Remapped points.
+ */
+vector<cv::Point> remapPointsToOriginalImage(vector<cv::Point> points, Mat rotation_matrix) {
+    Mat mat_points(3, points.size(), CV_64FC1);
+    vector<Point> result_points;
+    int x, y;
+    int i = 0;
+
+    for (auto it = points.begin(); it != points.end(); ++it, i++) {
+        mat_points.at<double>(0,i) = (*it).x;
+        mat_points.at<double>(1,i) = (*it).y;
+        mat_points.at<double>(2,i) = 1;
+    }
+    mat_points = rotation_matrix * mat_points;
+
+    for (int i = 0; i < mat_points.cols; i++) {
+        int x = int(mat_points.at<double>(0,i));
+        int y = int(mat_points.at<double>(1,i));
+        result_points.push_back(Point(x, y));
+    }
+
+    return result_points;
+}
+
+/**
+ * Paint circles of specified color and size 
+ * in multiple places on selected image.
+ *
+ * @param src (InOut) Image where circles should be painted.
+ * @param points (In) Positions where circles should be painted.
+ * @param point_size (In) Size of the point in px.
+ * @param color (In) Color specified as Scalar(B, G, R), where B, G, R belongs to <0; 255>.
+ */
+void paintPoints(Mat& src, vector<cv::Point> points, int point_size, cv::Scalar color) {
+    for (auto it = points.begin(); it != points.end(); ++it) {
+        circle(src, *it, point_size, color, FILLED,LINE_8 );
+    }
+}
+
+/**
+ * Prints a vector.
+ *
+ * @param vector (In) A vector to be printed in the console.
+ */
+void printVector(vector<int> vector) {
+    int i = 0;
+    for (auto it = vector.begin(); it != vector.end(); ++it, i++)
+        std::cout << i << ": " << *it << ' ' << endl;
+}
 
